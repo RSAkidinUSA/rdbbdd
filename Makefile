@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS += -Wall -Werror
 SRC	= $(wildcard *.c)
 OBJ = $(patsubst %.c,%.o, $(SRC))
-APP = rbdbdd
+APP = rdbbdd
 
 .PHONY: clean
 
