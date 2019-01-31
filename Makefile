@@ -2,7 +2,21 @@ CC = gcc
 CFLAGS += -Wall -Werror
 SRC	= $(wildcard *.c)
 OBJ = $(patsubst %.c,%.o, $(SRC))
+
 APP = rdbbdd
+
+DEPDIR := .d
+$(shell mkdir -p $(DEPDIR) >/dev/null)
+DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
+
+COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(TARGET_ARCH) -c
+
+POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d && touch $@
+
+%.o : %.c
+%.o : %.c $(DEPDIR)/%.d
+	$(COMPILE.c) $(OUTPUT_OPTION) $<
+	$(POSTCOMPILE)
 
 .PHONY: clean
 
@@ -23,3 +37,8 @@ build: $(OBJ)
 
 clean:
 	rm -f $(OBJ) $(APP)
+
+$(DEPDIR)/%.d: ;
+.PRECIOUS: $(DEPDIR)/%.d
+
+include $(wildcard $(patsubst %,$(DEPDIR)/%.d,$(basename $(SRC))))
