@@ -10,5 +10,6 @@ typedef struct ParseNode {
 } ParseNode;
 
 int parse_expr(ParseNode *root, int arg);
+void print_expr(ParseNode *root);
 
 #endif

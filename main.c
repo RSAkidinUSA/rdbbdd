@@ -5,16 +5,27 @@
 // args: # args to program, args to program
 // returns: 0 on success, other value on failure
 int main(int argc, char **argv) {
-	printf("Enter expression\n");
+	int retval;
 	ParseNode temp;
 	temp.func = NONE;
-	while(parse_expr(&temp, 0)) {
-		printf("expression complete\n");
+	do {
+		printf("Enter expression\n");
 		char c = getchar();
 		while (c == ' ' || c == '\t' || c == '\n') {
 			c = getchar();	
 		}
+		if (c == EOF) {
+			printf("EOF encountered, exiting\n");
+			return 0;
+		}
 		ungetc(c, stdin);
-	}
-	return 0;
+		if (!(retval = parse_expr(&temp, 0))) {
+			break;
+		} else {
+			print_expr(&temp);
+			printf("\n");
+		}
+	} while(1);
+	printf("Error encountered when parsing expression, exiting now\n");
+	return retval;
 }

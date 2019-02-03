@@ -18,9 +18,32 @@ const char EXPR_STRS[5][10] = {
 // checks if the expression and creates a new node
 // args: node to check, function, arg number
 // returns: pointer to new node or null if invalid
-static ParseNode *new_node(ParseNode *root, Func func, int arg) {
+static ParseNode *new_node(ParseNode *root, char c, int arg) {
 	char str[10] = {0,};
 	ParseNode *temp;
+	Func func;
+	switch(c) {
+		case 'n':
+		case 'N':
+			func = NOT;
+			break;
+		case 'a':
+		case 'A':
+			func = AND;
+			break;
+		case 'o':
+		case 'O':
+			func = OR;
+			break;
+		case 'i':
+		case 'I':
+			func = IMP;
+			break;
+		case 'e':
+		case 'E':
+			func = EQUIV;
+			break;
+	}
 	str[0] = EXPR_STRS[func][0];
 	for (int i = 1; i < strlen(EXPR_STRS[func]); i++) {
 		str[i] = getchar();
@@ -57,49 +80,17 @@ int parse_expr(ParseNode *node, int arg) {
 		switch(c) {
 			case 'n':
 			case 'N':
-				if (!(temp = new_node(node, NOT, arg))) {
-					parseErr("Invalid function\n");
-					return 1;
-				}
-				if (!parse_expr(temp, 0)) {
-					return 0;
-				}
-				break;
 			case 'a':
 			case 'A':
-				if (!(temp = new_node(node, AND, arg))) {
-					parseErr("Invalid function\n");
-					return 1;
-				}
-				if (!parse_expr(temp, 0)) {
-					return 0;
-				}
-				break;
 			case 'o':
 			case 'O':
-				if (!(temp = new_node(node, OR, arg))) {
-					parseErr("Invalid function\n");
-					return 1;
-				}
-				if (!parse_expr(temp, 0)) {
-					return 0;
-				}
-				break;
 			case 'i':
 			case 'I':
-				if (!(temp = new_node(node, IMP, arg))) {
-					parseErr("Invalid function\n");
-					return 1;
-				}
-				if (!parse_expr(temp, 0)) {
-					return 0;
-				}
-				break;
 			case 'e':
 			case 'E':
-				if (!(temp = new_node(node, EQUIV, arg))) {
+				if (!(temp = new_node(node, c, arg))) {
 					parseErr("Invalid function\n");
-					return 1;
+					return 0;
 				}
 				if (!parse_expr(temp, 0)) {
 					return 0;
@@ -123,16 +114,12 @@ int parse_expr(ParseNode *node, int arg) {
 				node->val[arg] = (void *) xval;
 				return 1;
 			case '0':
-				node->valType[arg] = C_VAL;
-				node->val[arg] = (void *) 0;
-				return 1;
 			case '1':
 				node->valType[arg] = C_VAL;
-				node->val[arg] = (void *) 1;
+				node->val[arg] = (void *) (long)(c - '0');
 				return 1;
 			default:
-				printf("c: %c, d: %d\n", c, (int) c);
-				parseErr("Invalid Expression\n");
+				parseErr("Invalid Expression:%c\n", c);
 				return 0;
 		}
 		c = getchar();
@@ -168,4 +155,48 @@ int parse_expr(ParseNode *node, int arg) {
 	}
 	parseErr("Escaped the while loop somehow\n");
 	return 0;
+}
+
+// print_expr
+// prints an expression
+// args: ParseNode tree node to print
+// returns: N/A
+void print_expr(ParseNode *root) {
+	int numArgs = (root->func == NOT) ? 1 : 2;
+	printf("( ");
+	for (int i = 0; i < numArgs; i++) {
+		if (i == numArgs - 1) {
+			switch(root->func) {
+				case NOT:
+					printf("! ");
+					break;
+				case AND:
+					printf(" && ");
+					break;
+				case OR:
+					printf(" || ");
+					break;
+				case IMP:
+					printf(" -> ");
+					break;
+				case EQUIV:
+					printf(" <-> ");
+					break;
+				default:
+					printf("ERROR");
+					break;
+			}
+		}
+		switch(root->valType[i]) {
+			case FUNC:
+				print_expr((ParseNode *) root->val[i]);
+				break;
+			case X_VAL:
+				printf("x");
+			case C_VAL:
+				printf("%ld", (long) root->val[i]);
+				break;
+		}
+	}
+	printf(" )");
 }
