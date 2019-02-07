@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 		ungetc(c, stdin);
-		if (!(retval = parse_expr(&temp, 0))) {
+		if ((retval = parse_expr(&temp, 0))) {
 			break;
 		} else {
 			print_expr(&temp);

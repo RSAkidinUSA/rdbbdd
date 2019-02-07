@@ -4,13 +4,21 @@
 #include <stdlib.h>
 #include "parse.h"
 
-const char EXPR_STRS[5][10] = {
+static const char EXPR_STRS[5][10] = {
 	"not(",
 	"and(",
 	"or(",
 	"imp(",
 	"equiv(",
 };
+
+/* Errors */
+#define ERR_XVAL	1
+#define ERR_EXPR	2
+#define ERR_PAREN	3
+#define ERR_COMMA	4
+#define ERR_LOOP	5
+
 
 #define parseErr(format, ...) \
 	fprintf(stderr, "\x1B[31m" "Parsing Error: " format "\x1B[0m", ##__VA_ARGS__)
@@ -68,10 +76,10 @@ static ParseNode *new_node(ParseNode *root, char c, int arg) {
 // parse_expr
 // parses an expression
 // args: ParseNode tree node to modify, argument (0 or 1)
-// returns: 1 if valid expression, 0 if not
+// returns: 0 if valid expression, 1 if not
 int parse_expr(ParseNode *node, int arg) {
 	ParseNode *temp;
-	int c;
+	int c, retval;
 	unsigned long xval;
 	while (arg < 2) {
 		c = getchar();
@@ -93,8 +101,8 @@ int parse_expr(ParseNode *node, int arg) {
 					parseErr("Invalid function\n");
 					return 0;
 				}
-				if (!parse_expr(temp, 0)) {
-					return 0;
+				if ((retval = parse_expr(temp, 0))) {
+					return retval;
 				}
 				break;
 			case 'x':
@@ -103,7 +111,7 @@ int parse_expr(ParseNode *node, int arg) {
 				c = getchar();
 				if (c < '0' || c > '9') {
 					parseErr("Invalid X Value\n");
-					return 0;
+					return ERR_XVAL;
 				}
 				while (c >= '0' && c <= '9') {
 					xval *= 10;
@@ -113,15 +121,15 @@ int parse_expr(ParseNode *node, int arg) {
 				ungetc(c, stdin);
 				node->valType[arg] = X_VAL;
 				node->val[arg] = (void *) xval;
-				return 1;
+				return 0;
 			case '0':
 			case '1':
 				node->valType[arg] = C_VAL;
 				node->val[arg] = (void *) (long)(c - '0');
-				return 1;
-			default:
-				parseErr("Invalid Expression:%c\n", c);
 				return 0;
+			default:
+				parseErr("Invalid Expression: %c\n", c);
+				return ERR_EXPR;
 		}
 		c = getchar();
 		while (c == ' ' || c == '\t') {
@@ -130,18 +138,18 @@ int parse_expr(ParseNode *node, int arg) {
 		if (temp->func == NOT) {
 			if (c != ')') {
 				parseErr("Missing Parenthesis\n");
-				return 0;
+				return ERR_PAREN;
 			} else {
-				return 1;
+				return 0;
 			}
 		} else {
 			if (c != ',') {
 				parseErr("Missing Comma\n");
-				return 0;
+				return ERR_COMMA;
 			}
 		}
-		if (!(parse_expr(temp, 1))) {
-			return 0;
+		if ((retval = parse_expr(temp, 1))) {
+			return retval;
 		}
 		c = getchar();
 		while (c == ' ' || c == '\t') {
@@ -149,13 +157,13 @@ int parse_expr(ParseNode *node, int arg) {
 		}
 		if (c != ')') {
 			parseErr("Missing Parenthesis\n");
-			return 0;
+			return ERR_COMMA;
 		} else {
-			return 1;
+			return 0;
 		}
 	}
 	parseErr("Escaped the while loop somehow\n");
-	return 0;
+	return ERR_LOOP;
 }
 
 // print_expr
