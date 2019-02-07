@@ -52,10 +52,10 @@ static ParseNode *new_node(ParseNode *root, char c, int arg) {
 		printf("%s, %s\n", EXPR_STRS[func], str);
 		return NULL;
 	} else {
-		if (root->func == NONE) {
+		if (root->func == ROOT) {
 			temp = root;
 		} else {
-			temp = malloc(sizeof(*temp));
+			temp = calloc(1, sizeof(*temp));
 			root->val[arg] = (void *)temp;
 			root->valType[arg] = FUNC;
 		}
@@ -182,8 +182,8 @@ void print_expr(ParseNode *root) {
 				case EQUIV:
 					printf(" <-> ");
 					break;
-				default:
-					printf("ERROR");
+				case ROOT:
+					printf(" ERROR in func value ");
 					break;
 			}
 		}
@@ -196,7 +196,27 @@ void print_expr(ParseNode *root) {
 			case C_VAL:
 				printf("%ld", (long) root->val[i]);
 				break;
+			case NONE:
+				printf(" ERROR in valType value ");
+				break;
 		}
 	}
 	printf(" )");
+}
+
+// del_expr
+// deletes an expression
+// args: ParseNode tree node to delete
+// returns: N/A
+void del_expr(ParseNode *root) {
+	for (int i = 0; i < 2; i++) {
+		if (root->valType[i] == FUNC) {
+			del_expr(root->val[i]);
+		}
+		root->valType[i] = NONE;
+	}
+	if (root->func != ROOT) {
+		free(root);
+	}
+	return;
 }

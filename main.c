@@ -7,7 +7,7 @@
 int main(int argc, char **argv) {
 	int retval;
 	ParseNode temp;
-	temp.func = NONE;
+	temp.func = ROOT;
 	do {
 		printf("Enter expression\n");
 		char c = getchar();
@@ -24,6 +24,8 @@ int main(int argc, char **argv) {
 		} else {
 			print_expr(&temp);
 			printf("\n");
+			temp.func = ROOT;
+			del_expr(&temp);
 		}
 	} while(1);
 	printf("Error encountered when parsing expression, exiting now\n");
