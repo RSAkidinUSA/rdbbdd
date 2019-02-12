@@ -30,7 +30,7 @@ void init_t_table(int size) {
 	T.max = 1;
 }
 
-int add(int i, int l, int h) {
+int add_t_table(int i, int l, int h) {
 	int u = ++(T.max);
 	T.table[u].i = i;
 	T.table[u].l = l;
@@ -55,7 +55,7 @@ void init_h_table(int size) {
 	H.max = 0;
 }
 
-bool member(int i, int l, int h) {
+bool member_h_table(int i, int l, int h) {
 	int u;
 	for (u = 0; u < H.max; u++) {
 		if ((H.table[u].i == i) && (H.table[u].l == l) 
@@ -66,7 +66,7 @@ bool member(int i, int l, int h) {
 	return false;
 }
 
-int lookup(int i, int l, int h) {
+int lookup_h_table(int i, int l, int h) {
 	int u;
 	for (u = 0; u < H.max; u++) {
 		if ((H.table[u].i == i) && (H.table[u].l == l) 
@@ -77,11 +77,29 @@ int lookup(int i, int l, int h) {
 	return H.max;
 }
 
+void insert_h_table(int i, int l, int h, int u) {
+	H.table[u].i = i;
+	H.table[u].l = l;
+	H.table[u].h = h;
+	if (u > H.max) {
+		H.max = u;
+	}
+}
+
 void free_h_table() {
 	free(H.table);
 }
 
 /* other available functions */
 int MK(int i, int l, int h) {
-	return l;
+	int u;
+	if (l == h) {
+		return l;
+	} else if (member_h_table(i, l, h)) {
+		return lookup_h_table(i, l, h);
+	} else {
+		u = add_t_table(i, l, h);
+		insert_h_table(i, l, h, u);
+		return u;
+	}
 }
