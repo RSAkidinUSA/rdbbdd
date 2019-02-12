@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "parse.h"
+#include "bdd.h"
 
 // Main function
 // args: # args to program, args to program
@@ -22,8 +23,16 @@ int main(int argc, char **argv) {
 		if ((retval = parse_expr(&temp, 0))) {
 			break;
 		} else {
+			/* print expression */
 			print_expr(&temp);
 			printf("\n");
+			/* build robdd */
+			init_h_table(100);
+			init_t_table(100);
+			/* delete robdd */
+			free_h_table();
+			free_t_table();
+			/* delete expression */
 			temp.func = ROOT;
 			del_expr(&temp);
 		}
