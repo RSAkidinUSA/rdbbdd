@@ -36,7 +36,7 @@ static expr_t expr;
 void init_expr(void) {
 	expr.numXs = 0;
 	expr.root = calloc(1, sizeof(*(expr.root)));
-	expr.root->func = ROOT;
+	expr.root->op = ROOT;
 }
 
 
@@ -71,45 +71,45 @@ void del_expr(void) {
 static parse_node_t *__new_node(parse_node_t *node, char c, int arg) {
 	char str[10] = {0,};
 	parse_node_t *temp;
-	func_t func;
+	op_t op;
 	switch(c) {
 		case 'n':
 		case 'N':
-			func = NOT;
+			op = NOT;
 			break;
 		case 'a':
 		case 'A':
-			func = AND;
+			op = AND;
 			break;
 		case 'o':
 		case 'O':
-			func = OR;
+			op = OR;
 			break;
 		case 'i':
 		case 'I':
-			func = IMP;
+			op = IMP;
 			break;
 		case 'e':
 		case 'E':
-			func = EQUIV;
+			op = EQUIV;
 			break;
 	}
-	str[0] = EXPR_STRS[func][0];
-	for (int i = 1; i < strlen(EXPR_STRS[func]); i++) {
+	str[0] = EXPR_STRS[op][0];
+	for (int i = 1; i < strlen(EXPR_STRS[op]); i++) {
 		str[i] = getchar();
 	}
-	if (strncasecmp(EXPR_STRS[func], str, strlen(EXPR_STRS[func]) + 1)) {
-		printf("%s, %s\n", EXPR_STRS[func], str);
+	if (strncasecmp(EXPR_STRS[op], str, strlen(EXPR_STRS[op]) + 1)) {
+		printf("%s, %s\n", EXPR_STRS[op], str);
 		return NULL;
 	} else {
-		if (node->func == ROOT) {
+		if (node->op == ROOT) {
 			temp = node;
 		} else {
 			temp = calloc(1, sizeof(*temp));
 			node->val[arg] = (void *)temp;
 			node->valType[arg] = FUNC;
 		}
-		temp->func = func;
+		temp->op = op;
 		return temp;
 	}
 }
@@ -184,7 +184,7 @@ static int __parse_node(parse_node_t *node, int arg) {
 		while (c == ' ' || c == '\t') {
 			c = getchar();
 		}
-		if (temp->func == NOT) {
+		if (temp->op == NOT) {
 			if (c != ')') {
 				parseErr("Missing Parenthesis\n");
 				return ERR_PAREN;
@@ -228,11 +228,11 @@ int parse_expr(void) {
 // args: pares_node_t tree node to print
 // returns: N/A
 static void __print_node(parse_node_t *node) {
-	int numArgs = (node->func == NOT) ? 1 : 2;
+	int numArgs = (node->op == NOT) ? 1 : 2;
 	printf("( ");
 	for (int i = 0; i < numArgs; i++) {
 		if (i == numArgs - 1) {
-			switch(node->func) {
+			switch(node->op) {
 				case NOT:
 					printf("! ");
 					break;
@@ -285,4 +285,76 @@ void print_expr(void) {
 // returns: number of X values
 int get_expr_size(void) {
 	return expr.numXs;
+}
+
+// __eval_node
+// evaluates the value of a node recursively and returns it
+// args: node to evaluate
+// returns: evaluation
+x_val_t __eval_node(parse_node_t *node, x_val_t *xvals) {
+	x_val_t val[2];
+	for (int i = 0; i < 2; i++) {
+		switch(node->valType[i]) {
+		case FUNC:
+			val[i] = __eval_node((parse_node_t *)(node->val[i]), xvals);
+			break;
+		case X_VAL:
+			val[i] = xvals[(long)(node->val[i])];
+			break;
+		case C_VAL:
+			val[i] = node->val[i] ? X_VAL_1 : X_VAL_0;
+			break;
+		case NONE:
+			val[i] = X_VAL_X;
+			break;
+		}
+	}
+	switch(node->op) {
+		case NOT:
+			if (val[0] == X_VAL_X) {
+				return X_VAL_X;
+			} else {
+				return (val[0] == X_VAL_1) ? X_VAL_0 : X_VAL_1;
+			}
+		case AND:
+			if (val[0] == X_VAL_0 || val[1] == X_VAL_0) {
+				return X_VAL_0;
+			} else if (val[0] == X_VAL_X || val[1] == X_VAL_X) {
+				return X_VAL_X;
+			} else {
+				return X_VAL_1;
+			}
+		case OR:
+			if (val[0] == X_VAL_1 || val[1] == X_VAL_1) {
+				return X_VAL_1;
+			} else if (val[0] == X_VAL_X || val[1] == X_VAL_X) {
+				return X_VAL_X;
+			} else {
+				return X_VAL_0;
+			}
+		case IMP:
+			if (val[0] == X_VAL_0) {
+				return X_VAL_1;
+			} else if (val[0] == X_VAL_X || val[1] == X_VAL_X) {
+				return X_VAL_X;
+			} else {
+				return (val[1] == X_VAL_1) ? X_VAL_1 : X_VAL_0;
+			}
+		case EQUIV:
+			if (val[0] == X_VAL_X || val[1] == X_VAL_X) {
+				return X_VAL_X;
+			} else {
+				return (val[0] == val[1]) ? X_VAL_1 : X_VAL_0;
+			}
+		default:
+			return X_VAL_X;
+	}
+}
+
+// eval_expr
+// evaulates an expression using stored X values
+// args: N/A
+// returns: 0 if the expression cannot be solved yet, 1 if the value is 0, 2 if the value is 1
+x_val_t eval_expr(x_val_t *xvals) {
+	return __eval_node(expr.root, xvals);
 }

@@ -26,11 +26,13 @@ int main(int argc, char **argv) {
 			print_expr();
 			printf("\n");
 			// build robdd
-			init_t_table(get_expr_size());
-			init_h_table();
+			init_bdd(get_expr_size());
+			// testing
+			BUILD();
+			printMK();
+			// end testing
 			// delete robdd
-			free_t_table();
-			free_h_table();
+			free_bdd();
 			// delete expression
 			del_expr();
 		}
@@ -38,19 +40,3 @@ int main(int argc, char **argv) {
 	printf("Error encountered when parsing expression, exiting now\n");
 	return retval;
 }
-
-/*
-int main() {
-	init_h_table(15);
-	init_t_table(15);
-	MK(4,1,0);
-	MK(4,0,1);
-	MK(3,2,3);
-	MK(2,4,0);
-	MK(2,0,4);
-	MK(1,5,6);
-	printMK();
-	free_t_table();
-	free_h_table();
-}
-*/

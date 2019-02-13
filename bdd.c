@@ -1,15 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
+#include <search.h>
 #include "bdd.h"
+#include "parse.h"
 
-/* functions
-	not(x)		= (x -> 0, 1)
-	and(x, y)	= (x -> (y -> 1, 0), 0)
-	or(x, y)	= (x -> 1, (y -> 1, 0))
-	imp(x, y)	= (x -> (y -> 1, 0), 1)
-	equiv(x, y)	= (x -> (y -> 1, 0), (y -> 0, 1))
-*/
+// functions
+//	not(x)		= (x -> 0, 1)
+//	and(x, y)	= (x -> (y -> 1, 0), 0)
+//	or(x, y)	= (x -> 1, (y -> 1, 0))
+//	imp(x, y)	= (x -> (y -> 1, 0), 1)
+//	equiv(x, y)	= (x -> (y -> 1, 0), (y -> 0, 1))
+
+#define BDDErr(format, ...) \
+	fprintf(stderr, "\x1B[31m" "BDD Error: " format "\x1B[0m", ##__VA_ARGS__)
+
 typedef struct {
 	int i; // var(u)
 	int l; // low(u)
@@ -21,28 +27,17 @@ typedef struct {
 	int max;
 } t_table_t;
 
-/* T table functions */
+// T table functions
 static t_table_t T;
-void init_t_table(int numXs) {
+static void init_t_table(int numXs) {
 	T.table = calloc(NUM_TABLE_ENTRIES, sizeof(T.table));
 	T.table[0].i = numXs + 1;
 	T.table[1].i = numXs + 1;
 	T.max = 2;
 }
 
-int add_t_table(int i, int l, int h) {
+static int add_t_table(int i, int l, int h) {
 	// set values for table[0,1]
-	bool exists = false;
-	for (int index = 0; index < T.max; index++) {
-		if (T.table[index].i == i) {
-			exists = true;
-			break;
-		}
-	}
-	if (!exists) {
-		T.table[0].i++;
-		T.table[1].i++;
-	}
 	int u = T.max++;
 	T.table[u].i = i;
 	T.table[u].l = l;
@@ -50,61 +45,70 @@ int add_t_table(int i, int l, int h) {
 	return u;
 }
 
-void free_t_table(void) {
+static void free_t_table(void) {
 	free(T.table);
 }
 
-/* H table functions */
-typedef struct {
-	mk_node *table;
-	int *u;
-	int max;
-} h_table_t;
+// H table functions
+#define KEY_LEN 256
 
-static h_table_t H;
+static char keys[NUM_TABLE_ENTRIES][KEY_LEN];
+static int numKeys;
 
-void init_h_table(void) {
-	H.table = calloc(NUM_TABLE_ENTRIES, sizeof(*(H.table)));
-	H.u = calloc(NUM_TABLE_ENTRIES, sizeof(*(H.u)));
-	H.max = 0;
-}
-
-bool member_h_table(int i, int l, int h) {
-	int index;
-	for (index = 0; index < H.max; index++) {
-		if ((H.table[index].i == i) && (H.table[index].l == l) 
-				&& (H.table[index].h == h)) {
-			return true;
-		}
+static void init_h_table(void) {
+	hcreate(NUM_TABLE_ENTRIES);
+	numKeys = 0;
+	for (int i = 0; i < NUM_TABLE_ENTRIES; i++) {
+		memset(keys[i], 0, KEY_LEN);
 	}
-	return false;
 }
 
-int lookup_h_table(int i, int l, int h) {
-	int index;
-	for (index = 0; index < H.max; index++) {
-		if ((H.table[index].i == i) && (H.table[index].l == l) 
-				&& (H.table[index].h == h)) {
-			return H.u[index];
-		}
+static bool member_h_table(int i, int l, int h) {
+	ENTRY e, *ep;
+	char key[KEY_LEN] = {0};
+	sprintf(key, "%d,%d,%d", i, l, h);
+	e.key = key;
+	ep = hsearch(e, FIND);
+	return (ep == NULL) ? false : true;
+}
+
+static int lookup_h_table(int i, int l, int h) {
+	ENTRY e, *ep;
+	char key[KEY_LEN] = {0};
+	sprintf(key, "%d,%d,%d", i, l, h);
+	e.key = key;
+	ep = hsearch(e, FIND);
+	return (ep == NULL) ? -1 : (int)(long)(ep->data);
+}
+
+static void insert_h_table(int i, int l, int h, int u) {
+	ENTRY e, *ep;
+	char *key = keys[numKeys++];
+	sprintf(key, "%d,%d,%d", i, l, h);
+	e.key = key;
+	e.data = (void *)(long) u;
+	ep = hsearch(e, ENTER);
+	if (ep == NULL) {
+		BDDErr("H entry failed\n");
 	}
-	return -1;
 }
 
-void insert_h_table(int i, int l, int h, int u) {
-	int index = H.max++;
-	H.table[index].i = i;
-	H.table[index].l = l;
-	H.table[index].h = h;
-	H.u[index] = u;
+static void free_h_table(void) {
+	hdestroy();
 }
 
-void free_h_table(void) {
-	free(H.table);
-	free(H.u);
+// accessible init functions
+void init_bdd(int numXs) {
+	init_t_table(numXs);
+	init_h_table();
 }
 
-/* other available functions */
+void free_bdd(void) {
+	free_h_table();
+	free_t_table();
+}
+
+// other available functions
 int MK(int i, int l, int h) {
 	int u;
 	if (l == h) {
@@ -118,12 +122,30 @@ int MK(int i, int l, int h) {
 	}
 }
 
-int __BUILD(int t, int i) {
-	return 1;
+int __BUILD(x_val_t *xvals, int i) {
+	if (i > T.table[0].i - 1) {
+		x_val_t eval = eval_expr(xvals);
+		if (eval == X_VAL_0) {
+			return 0;
+		} else if (eval == X_VAL_1) {
+			return 1;
+		} else {
+			BDDErr("Build error, eval returned X_VAL_X");
+			return -1;
+		}
+	} else {
+		int v[2];
+		for (int j = 0; j < 2; j++) {
+			xvals[i] = (j == 0) ? X_VAL_0 : X_VAL_1;
+			v[j] = __BUILD(xvals, i + 1);
+		}
+		return MK(i, v[0], v[1]);
+	}
 }
 
-int BUILD(int t) {
-	return __BUILD(t, 1);
+int BUILD(void) {
+	x_val_t *xvals = calloc(get_expr_size() + 1, sizeof(*xvals));
+	return __BUILD(xvals, 1);
 }
 
 void printMK(void) {
@@ -132,9 +154,15 @@ void printMK(void) {
 	for (int u = 0; u < T.max; u++) {
 		printf("%d\t%d\t%d\t%d\n", u, T.table[u].i, T.table[u].l, T.table[u].h);
 	}
+
+	ENTRY e, *ep;
+	char *key;
 	printf("Printing H table:\n");
-	printf("u\ti\tl\th\n");
-	for (int u = 0; u < H.max; u++) {
-		printf("%d\t%d\t%d\t%d\n", H.u[u], H.table[u].i, H.table[u].l, H.table[u].h);
+	printf("key\tu\n");
+	for (int u = 0; u < numKeys; u++) {
+		key = keys[u];
+		e.key = key;
+		ep = hsearch(e, FIND);
+		printf("%s\t%d\n", key, (ep == NULL) ? 0 : (int)(long)(ep->data));
 	}
 }
