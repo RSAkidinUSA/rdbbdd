@@ -1,0 +1,5 @@
+not(1)
+and(0,x1)
+imp(1,0)
+equiv(1,0)
+and(not(x1),x1)
