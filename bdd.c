@@ -23,43 +23,57 @@ typedef struct {
 
 /* T table functions */
 static t_table_t T;
-void init_t_table(int size) {
-	T.table = calloc(size, sizeof(T.table));
-	T.table[0].i = 1;
-	T.table[1].i = 1;
-	T.max = 1;
+void init_t_table(int numXs) {
+	T.table = calloc(NUM_TABLE_ENTRIES, sizeof(T.table));
+	T.table[0].i = numXs + 1;
+	T.table[1].i = numXs + 1;
+	T.max = 2;
 }
 
 int add_t_table(int i, int l, int h) {
-	int u = ++(T.max);
+	// set values for table[0,1]
+	bool exists = false;
+	for (int index = 0; index < T.max; index++) {
+		if (T.table[index].i == i) {
+			exists = true;
+			break;
+		}
+	}
+	if (!exists) {
+		T.table[0].i++;
+		T.table[1].i++;
+	}
+	int u = T.max++;
 	T.table[u].i = i;
 	T.table[u].l = l;
 	T.table[u].h = h;
 	return u;
 }
 
-void free_t_table() {
+void free_t_table(void) {
 	free(T.table);
 }
 
 /* H table functions */
 typedef struct {
 	mk_node *table;
+	int *u;
 	int max;
 } h_table_t;
 
 static h_table_t H;
 
-void init_h_table(int size) {
-	H.table = calloc(size, sizeof(H.table));
+void init_h_table(void) {
+	H.table = calloc(NUM_TABLE_ENTRIES, sizeof(*(H.table)));
+	H.u = calloc(NUM_TABLE_ENTRIES, sizeof(*(H.u)));
 	H.max = 0;
 }
 
 bool member_h_table(int i, int l, int h) {
-	int u;
-	for (u = 0; u < H.max; u++) {
-		if ((H.table[u].i == i) && (H.table[u].l == l) 
-				&& (H.table[u].h == h)) {
+	int index;
+	for (index = 0; index < H.max; index++) {
+		if ((H.table[index].i == i) && (H.table[index].l == l) 
+				&& (H.table[index].h == h)) {
 			return true;
 		}
 	}
@@ -67,27 +81,27 @@ bool member_h_table(int i, int l, int h) {
 }
 
 int lookup_h_table(int i, int l, int h) {
-	int u;
-	for (u = 0; u < H.max; u++) {
-		if ((H.table[u].i == i) && (H.table[u].l == l) 
-				&& (H.table[u].h == h)) {
-			return u;
+	int index;
+	for (index = 0; index < H.max; index++) {
+		if ((H.table[index].i == i) && (H.table[index].l == l) 
+				&& (H.table[index].h == h)) {
+			return H.u[index];
 		}
 	}
-	return H.max;
+	return -1;
 }
 
 void insert_h_table(int i, int l, int h, int u) {
-	H.table[u].i = i;
-	H.table[u].l = l;
-	H.table[u].h = h;
-	if (u > H.max) {
-		H.max = u;
-	}
+	int index = H.max++;
+	H.table[index].i = i;
+	H.table[index].l = l;
+	H.table[index].h = h;
+	H.u[index] = u;
 }
 
-void free_h_table() {
+void free_h_table(void) {
 	free(H.table);
+	free(H.u);
 }
 
 /* other available functions */
@@ -101,5 +115,26 @@ int MK(int i, int l, int h) {
 		u = add_t_table(i, l, h);
 		insert_h_table(i, l, h, u);
 		return u;
+	}
+}
+
+int __BUILD(int t, int i) {
+	return 1;
+}
+
+int BUILD(int t) {
+	return __BUILD(t, 1);
+}
+
+void printMK(void) {
+	printf("Printing T table:\n");
+	printf("u\ti\tl\th\n");
+	for (int u = 0; u < T.max; u++) {
+		printf("%d\t%d\t%d\t%d\n", u, T.table[u].i, T.table[u].l, T.table[u].h);
+	}
+	printf("Printing H table:\n");
+	printf("u\ti\tl\th\n");
+	for (int u = 0; u < H.max; u++) {
+		printf("%d\t%d\t%d\t%d\n", H.u[u], H.table[u].i, H.table[u].l, H.table[u].h);
 	}
 }

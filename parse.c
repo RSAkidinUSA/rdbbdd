@@ -19,18 +19,59 @@ static const char EXPR_STRS[5][10] = {
 #define ERR_COMMA	4
 #define ERR_LOOP	5
 
-
 #define parseErr(format, ...) \
 	fprintf(stderr, "\x1B[31m" "Parsing Error: " format "\x1B[0m", ##__VA_ARGS__)
+
+typedef struct {
+	parse_node_t *root;
+	int numXs;
+} expr_t;
+
+static expr_t expr;
+
+// init_expr
+// initializes the base of the expression
+// args: N/A
+// returns: N/A
+void init_expr(void) {
+	expr.numXs = 0;
+	expr.root = calloc(1, sizeof(*(expr.root)));
+	expr.root->func = ROOT;
+}
+
+
+// __del_node
+// deletes all subnodes
+// args: parse_node to delete subnodes from
+// returns: N/A
+static void __del_node(parse_node_t *node) {
+	for (int i = 0; i < 2; i++) {
+		if (node->valType[i] == FUNC) {
+			__del_node(node->val[i]);
+			free(node->val[i]);
+		}
+		node->valType[i] = NONE;
+	}
+}
+
+// del_expr
+// deletes an expression
+// args: N/A
+// returns: N/A
+void del_expr(void) {
+	expr.numXs = 0;
+	__del_node(expr.root);
+	free(expr.root);
+}
 
 // new_node
 // checks if the expression and creates a new node
 // args: node to check, function, arg number
 // returns: pointer to new node or null if invalid
-static ParseNode *new_node(ParseNode *root, char c, int arg) {
+static parse_node_t *__new_node(parse_node_t *node, char c, int arg) {
 	char str[10] = {0,};
-	ParseNode *temp;
-	Func func;
+	parse_node_t *temp;
+	func_t func;
 	switch(c) {
 		case 'n':
 		case 'N':
@@ -61,24 +102,24 @@ static ParseNode *new_node(ParseNode *root, char c, int arg) {
 		printf("%s, %s\n", EXPR_STRS[func], str);
 		return NULL;
 	} else {
-		if (root->func == ROOT) {
-			temp = root;
+		if (node->func == ROOT) {
+			temp = node;
 		} else {
 			temp = calloc(1, sizeof(*temp));
-			root->val[arg] = (void *)temp;
-			root->valType[arg] = FUNC;
+			node->val[arg] = (void *)temp;
+			node->valType[arg] = FUNC;
 		}
 		temp->func = func;
 		return temp;
 	}
 }
 
-// parse_expr
-// parses an expression
-// args: ParseNode tree node to modify, argument (0 or 1)
+// __parse_node
+// parses an node
+// args: parse_node_t tree node to modify, argument (0 or 1)
 // returns: 0 if valid expression, 1 if not
-int parse_expr(ParseNode *node, int arg) {
-	ParseNode *temp;
+static int __parse_node(parse_node_t *node, int arg) {
+	parse_node_t *temp;
 	int c, retval;
 	unsigned long xval;
 	while (arg < 2) {
@@ -97,11 +138,11 @@ int parse_expr(ParseNode *node, int arg) {
 			case 'I':
 			case 'e':
 			case 'E':
-				if (!(temp = new_node(node, c, arg))) {
+				if (!(temp = __new_node(node, c, arg))) {
 					parseErr("Invalid function\n");
 					return 0;
 				}
-				if ((retval = parse_expr(temp, 0))) {
+				if ((retval = __parse_node(temp, 0))) {
 					return retval;
 				}
 				break;
@@ -109,7 +150,7 @@ int parse_expr(ParseNode *node, int arg) {
 			case 'X':
 				xval = 0;
 				c = getchar();
-				if (c < '0' || c > '9') {
+				if (c < '1' || c > '9') {
 					parseErr("Invalid X Value\n");
 					return ERR_XVAL;
 				}
@@ -118,9 +159,17 @@ int parse_expr(ParseNode *node, int arg) {
 					xval += c - '0';
 					c = getchar();
 				}
-				ungetc(c, stdin);
-				node->valType[arg] = X_VAL;
-				node->val[arg] = (void *) xval;
+				if (xval == expr.numXs + 1) {
+					expr.numXs++;
+				}
+				if (xval <= expr.numXs) {
+					ungetc(c, stdin);
+					node->valType[arg] = X_VAL;
+					node->val[arg] = (void *) xval;
+				} else {
+					parseErr("X value not sequential\n");
+					return ERR_XVAL;
+				}
 				return 0;
 			case '0':
 			case '1':
@@ -148,7 +197,7 @@ int parse_expr(ParseNode *node, int arg) {
 				return ERR_COMMA;
 			}
 		}
-		if ((retval = parse_expr(temp, 1))) {
+		if ((retval = __parse_node(temp, 1))) {
 			return retval;
 		}
 		c = getchar();
@@ -166,16 +215,24 @@ int parse_expr(ParseNode *node, int arg) {
 	return ERR_LOOP;
 }
 
-// print_expr
-// prints an expression
-// args: ParseNode tree node to print
+// parse_expr
+// parses an expression
+// args: N/A
+// return: 0 on sucess, error val on failure
+int parse_expr(void) {
+	return __parse_node(expr.root, 0);
+}
+
+// __print_node
+// prints a node
+// args: pares_node_t tree node to print
 // returns: N/A
-void print_expr(ParseNode *root) {
-	int numArgs = (root->func == NOT) ? 1 : 2;
+static void __print_node(parse_node_t *node) {
+	int numArgs = (node->func == NOT) ? 1 : 2;
 	printf("( ");
 	for (int i = 0; i < numArgs; i++) {
 		if (i == numArgs - 1) {
-			switch(root->func) {
+			switch(node->func) {
 				case NOT:
 					printf("! ");
 					break;
@@ -196,14 +253,14 @@ void print_expr(ParseNode *root) {
 					break;
 			}
 		}
-		switch(root->valType[i]) {
+		switch(node->valType[i]) {
 			case FUNC:
-				print_expr((ParseNode *) root->val[i]);
+				__print_node((parse_node_t *) node->val[i]);
 				break;
 			case X_VAL:
 				printf("x");
 			case C_VAL:
-				printf("%ld", (long) root->val[i]);
+				printf("%ld", (long) node->val[i]);
 				break;
 			case NONE:
 				printf(" ERROR in valType value ");
@@ -213,19 +270,19 @@ void print_expr(ParseNode *root) {
 	printf(" )");
 }
 
-// del_expr
-// deletes an expression
-// args: ParseNode tree node to delete
+
+// print_expr
+// prints the most recently loaded expression
+// args: N/A
 // returns: N/A
-void del_expr(ParseNode *root) {
-	for (int i = 0; i < 2; i++) {
-		if (root->valType[i] == FUNC) {
-			del_expr(root->val[i]);
-		}
-		root->valType[i] = NONE;
-	}
-	if (root->func != ROOT) {
-		free(root);
-	}
-	return;
+void print_expr(void) {
+	__print_node(expr.root);
+}
+
+// get_expr_size
+// returns the number of unique X values in a parsed expression
+// args: N/A
+// returns: number of X values
+int get_expr_size(void) {
+	return expr.numXs;
 }
