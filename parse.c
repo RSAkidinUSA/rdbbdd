@@ -2,6 +2,7 @@
 #include <string.h>
 #include <strings.h>
 #include <stdlib.h>
+#include "colors.h"
 #include "parse.h"
 
 static const char EXPR_STRS[5][10] = {
@@ -20,7 +21,7 @@ static const char EXPR_STRS[5][10] = {
 #define ERR_LOOP	5
 
 #define parseErr(format, ...) \
-	fprintf(stderr, "\x1B[31m" "Parsing Error: " format "\x1B[0m", ##__VA_ARGS__)
+	fprintf(stderr, KRED "Parsing Error: " format KRST, ##__VA_ARGS__)
 
 typedef struct {
 	parse_node_t *root;
@@ -234,13 +235,13 @@ static void __print_node(parse_node_t *node) {
 		if (i == numArgs - 1) {
 			switch(node->op) {
 				case NOT:
-					printf("! ");
+					printf("~ ");
 					break;
 				case AND:
-					printf(" && ");
+					printf(" /\\ ");
 					break;
 				case OR:
-					printf(" || ");
+					printf(" \\/ ");
 					break;
 				case IMP:
 					printf(" -> ");

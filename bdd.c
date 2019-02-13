@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <search.h>
+#include "colors.h"
 #include "bdd.h"
 #include "parse.h"
 
@@ -14,7 +15,7 @@
 //	equiv(x, y)	= (x -> (y -> 1, 0), (y -> 0, 1))
 
 #define BDDErr(format, ...) \
-	fprintf(stderr, "\x1B[31m" "BDD Error: " format "\x1B[0m", ##__VA_ARGS__)
+	fprintf(stderr, KRED "BDD Error: " format KRST, ##__VA_ARGS__)
 
 typedef struct {
 	int i; // var(u)
@@ -143,12 +144,20 @@ int __BUILD(x_val_t *xvals, int i) {
 	}
 }
 
+// BUILD
+// Builds a BDD
+// args: N/A
+// returns: 0 if contradiction, 1 if tautology, else number of variables + 1
 int BUILD(void) {
 	x_val_t *xvals = calloc(get_expr_size() + 1, sizeof(*xvals));
 	return __BUILD(xvals, 1);
 }
 
-void printMK(void) {
+// printBDD
+// prints TTable and HTable
+// args: N/A
+// returns: N/A
+void printBDD(void) {
 	printf("Printing T table:\n");
 	printf("u\ti\tl\th\n");
 	for (int u = 0; u < T.max; u++) {

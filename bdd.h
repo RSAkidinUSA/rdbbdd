@@ -10,6 +10,8 @@ void free_bdd(void);
 // other functions
 int MK(int i, int l, int h);
 int BUILD(void);
-void printMK(void);
+void printBDD(void);
+void printTTable(void);
+void printHTable(void);
 
 #endif

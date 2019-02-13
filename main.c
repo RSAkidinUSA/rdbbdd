@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "colors.h"
 #include "parse.h"
 #include "bdd.h"
 
@@ -28,8 +29,14 @@ int main(int argc, char **argv) {
 			// build robdd
 			init_bdd(get_expr_size());
 			// testing
-			BUILD();
-			printMK();
+			int res = BUILD();
+			if (res == 0) {
+				printf(KYEL "Expression is a contradiction\n" KRST);
+			} else if (res == 1) {
+				printf(KGRN "Expression is a tautology\n" KRST);
+			} else {
+				printBDD();
+			}
 			// end testing
 			// delete robdd
 			free_bdd();
