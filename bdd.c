@@ -121,7 +121,7 @@ static void free_h_table(bdd_t *bdd) {
 
 // __BUILD
 // backend to the BUILD function - as described in bdd-eap
-// args: list of x values, iteration number
+// args: bdd, list of x values, iteration number
 // returns: 0 if false, 1 if true, else number of X values + 1
 static int __BUILD(bdd_t *bdd, x_val_t *xvals, int i) {
 	if (i > bdd->T.table[0].i - 1) {
@@ -142,6 +142,42 @@ static int __BUILD(bdd_t *bdd, x_val_t *xvals, int i) {
 		}
 		int ret = MK(bdd, i, v[0], v[1]);
 		return ret;
+	}
+}
+
+// __APP
+// backend to the apply function - as described in bdd-eap
+// args: resulting bdd, base of tables 1 and 2, operator, indices to access
+// returns: 
+static int __APP(bdd_t *res, mk_node *base1, mk_node *base2, op_t op, int u1, int u2) {
+	if ((u1 == 0 || u1 == 1) && (u2 == 0 || u2 == 1)) {
+		switch(op) {
+			case NOT:
+				return (u1 == 1) ? 0 : 1;
+			case AND:
+				return (u1 == 1 && u2 == 1) ? 1 : 0;
+			case OR:
+				return (u1 == 1 || u2 == 1) ? 1 : 0;
+			case IMP:
+				return (u1 == 0 || (u1 == 1 && u2 == 1)) ? 1 : 0;
+			case EQUIV:
+				return (u1 == u2) ? 1 : 0;
+			case ROOT:
+				break;
+		}
+		return -1;
+	} else if (base1[u1].i == base2[u2].i) {
+		return MK(res, base1[u1].i, 
+				__APP(res, base1, base2, op, base1[u1].l, base2[u2].l), 
+				__APP(res, base1, base2, op, base1[u1].h, base2[u2].h));
+	} else if (base1[u1].i > base2[u2].i) {
+		return MK(res, base1[u1].i,
+				__APP(res, base1, base2, op, base1[u1].l, u2),
+				__APP(res, base1, base2, op, base1[u1].h, u2));
+	} else {
+		return MK(res, base2[u2].i,
+				__APP(res, base1, base2, op, u1, base2[u2].l),
+				__APP(res, base1, base2, op, u1, base2[u2].h));
 	}
 }
 
@@ -200,10 +236,10 @@ int BUILD(bdd_t *bdd) {
 
 // APPLY
 // applies an operand to join to BDDs
-// args: N/A
+// args: resulting bdd, operator, bdd1, bdd2
 // returns: 0 if contradiction, 1 if tautology, otherwise number of unique x's
-int APPLY(op_t op, bdd_t *bdd1, bdd_t *bdd2, bdd_t *res) {
-	return 0;
+int APPLY(bdd_t *res, op_t op, bdd_t *bdd1, bdd_t *bdd2) {
+	return __APP(res, bdd1->T.table, bdd2->T.table, op, bdd1->T.max, bdd2->T.max);
 }
 
 

@@ -39,7 +39,7 @@ void free_bdd(bdd_t *bdd);
 // other functions
 int MK(bdd_t *bdd, int i, int l, int h);
 int BUILD(bdd_t *bdd);
-//int APPLY(op_t op, int u1, int u2);
+int APPLY(bdd_t *res, op_t op, bdd_t *u1, bdd_t *u2);
 
 // printing functions
 void printBDD(bdd_t *bdd);
