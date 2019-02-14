@@ -146,15 +146,14 @@ static int __BUILD(expr_t *expr, x_val_t *xvals, int i) {
 	}
 }
 
+static int __APP_op;
 // __APP
 // backend to the apply function - as described in bdd-eap
-// args: resulting bdd, base of tables 1 and 2, operator, indices to access
-// returns: 
-static int __APP(op_t op, int u1, int u2) {
-	int ret;
-	//printf("%d %d\n", u1, u2);fflush(stdout);
+// args: values u1 and u2
+// returns: 0 if contradiction, 1 if tautology, else number of nodes + 2
+static int __APP(int u1, int u2) {
 	if ((u1 == 0 || u1 == 1) && (u2 == 0 || u2 == 1)) {
-		switch(op) {
+		switch(__APP_op) {
 			case NOT:
 				return (u1 == 1) ? 0 : 1;
 			case AND:
@@ -170,21 +169,50 @@ static int __APP(op_t op, int u1, int u2) {
 		}
 		return -1;
 	} else if (T[u1].i == T[u2].i) {
-		ret = MK(T[u1].i, 
-				__APP(op, T[u1].l, T[u2].l), 
-				__APP(op, T[u1].h, T[u2].h));
-		return ret;
+		return MK(T[u1].i, 
+				__APP(T[u1].l, T[u2].l), 
+				__APP(T[u1].h, T[u2].h));
 	} else if (T[u1].i < T[u2].i) {
-		ret = MK(T[u1].i,
-				__APP(op, T[u1].l, u2),
-				__APP(op, T[u1].h, u2));
-		return ret;
+		return MK(T[u1].i,
+				__APP(T[u1].l, u2),
+				__APP(T[u1].h, u2));
 	} else {
-		ret = MK(T[u2].i,
-				__APP(op, u1, T[u2].l),
-				__APP(op, u1, T[u2].h));
-		return ret;
+		return MK(T[u2].i,
+				__APP(u1, T[u2].l),
+				__APP(u1, T[u2].h));
 	}
+}
+
+static int __RES_j;
+static int __RES_b;
+// __APP
+// backend to the restrict function - as described in bdd-eap
+// args: value u
+// returns: 0 if contradiction, 1 if tautology, else number of nodes + 2
+static int __RES(int u) {
+	if (T[u].i > __RES_j) {
+		return u;
+	} else if (T[u].i < __RES_j) {
+		return MK(T[u].i, __RES(T[u].l), __RES(T[u].h));
+	} else if (__RES_b == 0) {
+		return __RES(T[u].l);
+	} else {
+		return __RES(T[u].h);
+	}
+}
+
+static bool used_entries[NUM_TABLE_ENTRIES];
+// __find_used
+// mark all used nodes in the tree
+// args: node to start from
+// returns: number of nodes visited
+static int __find_used(int u) {
+	int ret = (used_entries[u]++) ? 0 : 1;
+	if (!(u == 0 || u == 1)) {
+		ret += __find_used(T[u].l);
+		ret += __find_used(T[u].h);
+	}
+	return ret;
 }
 
 // accessible init functions
@@ -251,7 +279,18 @@ int BUILD(expr_t *expr) {
 // args: resulting bdd, operator, bdd1, bdd2
 // returns: 0 if contradiction, 1 if tautology, otherwise number of unique x's
 int APPLY(op_t op, int u1, int u2) {
-	return __APP(op, u1, u2);
+	__APP_op = op;
+	return __APP(u1, u2);
+}
+
+// RESTRICT
+// applies an operand to join to BDDs
+// args: resulting bdd, operator, bdd1, bdd2
+// returns: 0 if contradiction, 1 if tautology, otherwise number of unique x's
+int RESTRICT(int u, int j, int b) {
+	__RES_j = j;
+	__RES_b = b;
+	return __RES(u);
 }
 
 // other available functions
@@ -260,11 +299,17 @@ int APPLY(op_t op, int u1, int u2) {
 // prints T table
 // args: N/A
 // returns: N/A
-void printTTable(void) {
+void printTTable(int u) {
+	int used, printed = 0;
+	memset(used_entries, 0, MAX);
+	used = __find_used(u);
 	printf("Printing T table:\n");
 	printf("u\ti\tl\th\n");
-	for (int u = 0; u < MAX; u++) {
-		printf("%d\t%d\t%d\t%d\n", u, T[u].i, T[u].l, T[u].h);
+	for (int u = 0; printed < used; u++) {
+		if (used_entries[u]) {
+			printf("%d\t%d\t%d\t%d\n", u, T[u].i, T[u].l, T[u].h);
+			printed++;
+		}
 	}
 }
 

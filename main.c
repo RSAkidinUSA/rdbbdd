@@ -44,8 +44,9 @@ void analyze_result(int res) {
 	} else if (res == 1) {
 		printf(KGRN "Expression is a tautology\n" KRST);
 	} else {
-		printTTable();
+		printTTable(res);
 	}
+	fflush(stdout);
 }
 
 // Main function
@@ -103,6 +104,8 @@ int main(int argc, char **argv) {
 					count++;
 				}
 			} else {
+				// test restrict
+				analyze_result(RESTRICT(u[0], 2, 0));
 				// delete robdd
 				free_bdd();
 				// delete expression

@@ -26,9 +26,10 @@ void free_bdd(void);
 int MK(int i, int l, int h);
 int BUILD(expr_t *expr);
 int APPLY(op_t op, int u1, int u2);
+int RESTRICT(int u, int j, int b);
 
 // functions for printing
-void printTTable(void);
+void printTTable(int u);
 void printHTable(void);
 
 #endif
