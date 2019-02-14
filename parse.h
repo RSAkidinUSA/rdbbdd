@@ -11,11 +11,15 @@ typedef struct {
 	void *val[2];
 } parse_node_t;
 
-void init_expr(void);
-int parse_expr(void);
-void print_expr(void);
-void del_expr(void);
-int get_expr_size(void);
-x_val_t eval_expr(x_val_t *xvals);
+typedef struct {
+	parse_node_t *root;
+	int numXs;
+} expr_t;
+
+void init_expr(expr_t *expr);
+int parse_expr(expr_t *expr);
+void print_expr(expr_t *expr);
+void del_expr(expr_t *expr);
+x_val_t eval_expr(expr_t *expr, x_val_t *xvals);
 
 #endif

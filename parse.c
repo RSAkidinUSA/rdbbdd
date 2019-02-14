@@ -23,21 +23,14 @@ static const char EXPR_STRS[5][10] = {
 #define parseErr(format, ...) \
 	fprintf(stderr, KRED "Parsing Error: " format KRST, ##__VA_ARGS__)
 
-typedef struct {
-	parse_node_t *root;
-	int numXs;
-} expr_t;
-
-static expr_t expr;
-
 // init_expr
 // initializes the base of the expression
 // args: N/A
 // returns: N/A
-void init_expr(void) {
-	expr.numXs = 0;
-	expr.root = calloc(1, sizeof(*(expr.root)));
-	expr.root->op = ROOT;
+void init_expr(expr_t *expr) {
+	expr->numXs = 0;
+	expr->root = calloc(1, sizeof(*(expr->root)));
+	expr->root->op = ROOT;
 }
 
 
@@ -59,10 +52,10 @@ static void __del_node(parse_node_t *node) {
 // deletes an expression
 // args: N/A
 // returns: N/A
-void del_expr(void) {
-	expr.numXs = 0;
-	__del_node(expr.root);
-	free(expr.root);
+void del_expr(expr_t *expr) {
+	expr->numXs = 0;
+	__del_node(expr->root);
+	free(expr->root);
 }
 
 // new_node
@@ -119,7 +112,7 @@ static parse_node_t *__new_node(parse_node_t *node, char c, int arg) {
 // parses an node
 // args: parse_node_t tree node to modify, argument (0 or 1)
 // returns: 0 if valid expression, 1 if not
-static int __parse_node(parse_node_t *node, int arg) {
+static int __parse_node(expr_t *expr, parse_node_t *node, int arg) {
 	parse_node_t *temp;
 	int c, retval;
 	unsigned long xval;
@@ -143,7 +136,7 @@ static int __parse_node(parse_node_t *node, int arg) {
 					parseErr("Invalid function\n");
 					return 0;
 				}
-				if ((retval = __parse_node(temp, 0))) {
+				if ((retval = __parse_node(expr, temp, 0))) {
 					return retval;
 				}
 				break;
@@ -160,10 +153,10 @@ static int __parse_node(parse_node_t *node, int arg) {
 					xval += c - '0';
 					c = getchar();
 				}
-				if (xval == expr.numXs + 1) {
-					expr.numXs++;
+				if (xval == expr->numXs + 1) {
+					expr->numXs++;
 				}
-				if (xval <= expr.numXs) {
+				if (xval <= expr->numXs) {
 					ungetc(c, stdin);
 					node->valType[arg] = X_VAL;
 					node->val[arg] = (void *) xval;
@@ -198,7 +191,7 @@ static int __parse_node(parse_node_t *node, int arg) {
 				return ERR_COMMA;
 			}
 		}
-		if ((retval = __parse_node(temp, 1))) {
+		if ((retval = __parse_node(expr, temp, 1))) {
 			return retval;
 		}
 		c = getchar();
@@ -220,8 +213,8 @@ static int __parse_node(parse_node_t *node, int arg) {
 // parses an expression
 // args: N/A
 // return: 0 on sucess, error val on failure
-int parse_expr(void) {
-	return __parse_node(expr.root, 0);
+int parse_expr(expr_t *expr) {
+	return __parse_node(expr, expr->root, 0);
 }
 
 // __print_node
@@ -276,16 +269,8 @@ static void __print_node(parse_node_t *node) {
 // prints the most recently loaded expression
 // args: N/A
 // returns: N/A
-void print_expr(void) {
-	__print_node(expr.root);
-}
-
-// get_expr_size
-// returns the number of unique X values in a parsed expression
-// args: N/A
-// returns: number of X values
-int get_expr_size(void) {
-	return expr.numXs;
+void print_expr(expr_t *expr) {
+	__print_node(expr->root);
 }
 
 // __eval_node
@@ -356,6 +341,6 @@ x_val_t __eval_node(parse_node_t *node, x_val_t *xvals) {
 // evaulates an expression using stored X values
 // args: N/A
 // returns: 0 if the expression cannot be solved yet, 1 if the value is 0, 2 if the value is 1
-x_val_t eval_expr(x_val_t *xvals) {
-	return __eval_node(expr.root, xvals);
+x_val_t eval_expr(expr_t *expr, x_val_t *xvals) {
+	return __eval_node(expr->root, xvals);
 }
