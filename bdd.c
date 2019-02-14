@@ -12,27 +12,33 @@
 #define BDDErr(format, ...) \
 	fprintf(stderr, KRED "BDD Error: " format KRST, ##__VA_ARGS__)
 
+
+#define NUM_TABLE_ENTRIES 1000000 // 1 million table entries
+
+static mk_node T[NUM_TABLE_ENTRIES];
+static int NUM_BDDS = 0;
+static int MAX;
+
 // init_t_table
 // creates a T table and allocates memory
 // args: bdd to init, number of unqiue x values
 // returns: N/A
-static void init_t_table(bdd_t *bdd) {
-	bdd->T.table = calloc(NUM_TABLE_ENTRIES, sizeof(bdd->T.table));
-	bdd->T.table[0].i = bdd->expr->numXs + 1;
-	bdd->T.table[1].i = bdd->expr->numXs + 1;
-	bdd->T.max = 2;
+static void init_t_table(int numXs) {
+	T[0].i = numXs + 1;
+	T[1].i = numXs + 1;
+	MAX = 2;
 }
 
 // add_t_table
 // adds values to the T table
 // args: bdd, x#, low node, high node
 // returns: node #
-static int add_t_table(bdd_t *bdd, int i, int l, int h) {
+static int add_t_table(int i, int l, int h) {
 	// set values for table[0,1]
-	int u = bdd->T.max++;
-	bdd->T.table[u].i = i;
-	bdd->T.table[u].l = l;
-	bdd->T.table[u].h = h;
+	int u = MAX++;
+	T[u].i = i;
+	T[u].l = l;
+	T[u].h = h;
 	return u;
 }
 
@@ -40,67 +46,67 @@ static int add_t_table(bdd_t *bdd, int i, int l, int h) {
 // deallocates memory for T table
 // args: bdd
 // returns: N/A
-static void free_t_table(bdd_t *bdd) {
-	free(bdd->T.table);
+static void free_t_table(void) {
+	T[0].i = 0;
+	T[1].i = 0;
 }
 
 // H table functions
+
+#define KEY_LEN 256
+static char keys[NUM_TABLE_ENTRIES][KEY_LEN];
+static int numKeys;
 
 // init_h_table
 // initializes the hash table and list of keys
 // args: bdd
 // returns: N/A
-static void init_h_table(bdd_t *bdd) {
-	bdd->htab = calloc(1, sizeof(*(bdd->htab)));
-	hcreate_r(NUM_TABLE_ENTRIES, bdd->htab);
-	bdd->keys = calloc(NUM_TABLE_ENTRIES, sizeof(*(bdd->keys)));
+static void init_h_table(void) {
+	hcreate(NUM_TABLE_ENTRIES);
+	numKeys = 0;
 	for (int i = 0; i < NUM_TABLE_ENTRIES; i++) {
-		bdd->keys[i] = calloc(KEY_LEN, sizeof(*(bdd->keys[i])));
+		memset(keys[i], 0, KEY_LEN);
 	}
-	bdd->numKeys = 0;
 }
 
 // member_h_table
 // checks if a key is in the hash table
 // args: x#, low node, high node
 // returns: true if exists, else false
-static bool member_h_table(bdd_t *bdd, int i, int l, int h) {
-	int ret;
+static bool member_h_table(int i, int l, int h) {
 	ENTRY e, *ep;
 	char key[KEY_LEN] = {0};
 	sprintf(key, "%d,%d,%d", i, l, h);
 	e.key = key;
-	ret = hsearch_r(e, FIND, &ep, bdd->htab);
-	return (ret) ? true : false;
+	ep = hsearch(e, FIND);
+	return (ep == NULL) ? false : true;
 }
 
 // lookup_h_table
 // looks up the value in the hash table
 // args: x#, low node, high node
 // returns: node #
-static int lookup_h_table(bdd_t *bdd, int i, int l, int h) {
-	int ret;
+static int lookup_h_table(int i, int l, int h) {
 	ENTRY e, *ep;
 	char key[KEY_LEN] = {0};
 	sprintf(key, "%d,%d,%d", i, l, h);
 	e.key = key;
-	ret = hsearch_r(e, FIND, &ep, bdd->htab);
-	return (ret) ? (int)(long)(ep->data) : -1;
+	ep = hsearch(e, FIND);
+	return (ep == NULL) ? -1 : (int)(long)(ep->data);
 }
 
 // insert_h_table
 // insert a new value into the hash table
 // args: x #, high node, low node, node #
 // returns: N/A
-static void insert_h_table(bdd_t *bdd, int i, int l, int h, int u) {
-	int ret;
+static void insert_h_table(int i, int l, int h, int u) {
 	ENTRY e, *ep;
-	char *key = bdd->keys[bdd->numKeys++];
+	char *key = keys[numKeys++];
 	sprintf(key, "%d,%d,%d", i, l, h);
 	e.key = key;
 	e.data = (void *)(long) u;
-	ret = hsearch_r(e, ENTER, &ep, bdd->htab);
-	if (!ret) {
+	ep = hsearch(e, ENTER);
+	if (ep == NULL) {
 		BDDErr("H entry failed\n");
 	}
 }
@@ -109,13 +115,8 @@ static void insert_h_table(bdd_t *bdd, int i, int l, int h, int u) {
 // frees the hash table
 // args: N/A
 // returns: N/A
-static void free_h_table(bdd_t *bdd) {
-	for (int i = 0; i < NUM_TABLE_ENTRIES; i++) {
-		free((bdd->keys[i]));
-	}
-	free(bdd->keys);
-	hdestroy_r(bdd->htab);
-	free(bdd->htab);
+static void free_h_table(void) {
+	hdestroy();
 }
 
 
@@ -123,9 +124,9 @@ static void free_h_table(bdd_t *bdd) {
 // backend to the BUILD function - as described in bdd-eap
 // args: bdd, list of x values, iteration number
 // returns: 0 if false, 1 if true, else number of X values + 1
-static int __BUILD(bdd_t *bdd, x_val_t *xvals, int i) {
-	if (i > bdd->T.table[0].i - 1) {
-		x_val_t eval = eval_expr(bdd->expr, xvals);
+static int __BUILD(expr_t *expr, x_val_t *xvals, int i) {
+	if (i > T[0].i - 1) {
+		x_val_t eval = eval_expr(expr, xvals);
 		if (eval == X_VAL_0) {
 			return 0;
 		} else if (eval == X_VAL_1) {
@@ -138,9 +139,9 @@ static int __BUILD(bdd_t *bdd, x_val_t *xvals, int i) {
 		int v[2];
 		for (int j = 0; j < 2; j++) {
 			xvals[i] = (j == 0) ? X_VAL_0 : X_VAL_1;
-			v[j] = __BUILD(bdd, xvals, i + 1);
+			v[j] = __BUILD(expr, xvals, i + 1);
 		}
-		int ret = MK(bdd, i, v[0], v[1]);
+		int ret = MK(i, v[0], v[1]);
 		return ret;
 	}
 }
@@ -149,7 +150,9 @@ static int __BUILD(bdd_t *bdd, x_val_t *xvals, int i) {
 // backend to the apply function - as described in bdd-eap
 // args: resulting bdd, base of tables 1 and 2, operator, indices to access
 // returns: 
-static int __APP(bdd_t *res, mk_node *base1, mk_node *base2, op_t op, int u1, int u2) {
+static int __APP(op_t op, int u1, int u2) {
+	int ret;
+	//printf("%d %d\n", u1, u2);fflush(stdout);
 	if ((u1 == 0 || u1 == 1) && (u2 == 0 || u2 == 1)) {
 		switch(op) {
 			case NOT:
@@ -166,18 +169,21 @@ static int __APP(bdd_t *res, mk_node *base1, mk_node *base2, op_t op, int u1, in
 				break;
 		}
 		return -1;
-	} else if (base1[u1].i == base2[u2].i) {
-		return MK(res, base1[u1].i, 
-				__APP(res, base1, base2, op, base1[u1].l, base2[u2].l), 
-				__APP(res, base1, base2, op, base1[u1].h, base2[u2].h));
-	} else if (base1[u1].i > base2[u2].i) {
-		return MK(res, base1[u1].i,
-				__APP(res, base1, base2, op, base1[u1].l, u2),
-				__APP(res, base1, base2, op, base1[u1].h, u2));
+	} else if (T[u1].i == T[u2].i) {
+		ret = MK(T[u1].i, 
+				__APP(op, T[u1].l, T[u2].l), 
+				__APP(op, T[u1].h, T[u2].h));
+		return ret;
+	} else if (T[u1].i < T[u2].i) {
+		ret = MK(T[u1].i,
+				__APP(op, T[u1].l, u2),
+				__APP(op, T[u1].h, u2));
+		return ret;
 	} else {
-		return MK(res, base2[u2].i,
-				__APP(res, base1, base2, op, u1, base2[u2].l),
-				__APP(res, base1, base2, op, u1, base2[u2].h));
+		ret = MK(T[u2].i,
+				__APP(op, u1, T[u2].l),
+				__APP(op, u1, T[u2].h));
+		return ret;
 	}
 }
 
@@ -187,19 +193,25 @@ static int __APP(bdd_t *res, mk_node *base1, mk_node *base2, op_t op, int u1, in
 // initializes the T and H tables
 // args: number of unique X variables
 // returns: N/A
-void init_bdd(bdd_t *bdd, expr_t *expr) {
-	bdd->expr = expr;
-	init_t_table(bdd);
-	init_h_table(bdd);
+void init_bdd(expr_t *expr) {
+	if (!NUM_BDDS) {
+		MAX = 0;
+		init_t_table(expr->numXs);
+		init_h_table();
+	}
+	NUM_BDDS++;
 }
 
 // free_bdd
 // frees T and H tables
 // args: N/A
 // returns: N/A
-void free_bdd(bdd_t *bdd) {
-	free_h_table(bdd);
-	free_t_table(bdd);
+void free_bdd(void) {
+	NUM_BDDS--;
+	if (!NUM_BDDS) {
+		free_h_table();
+		free_t_table();
+	}
 }
 
 // Algorithms defined by bdd-eap
@@ -208,16 +220,16 @@ void free_bdd(bdd_t *bdd) {
 // MK algorithm as described in bdd-eap
 // args: x #, low branch, high branch
 // returns: node #
-int MK(bdd_t *bdd, int i, int l, int h) {
+int MK(int i, int l, int h) {
 	int u;
 	if (l == h) {
 		return l;
-	} else if (member_h_table(bdd, i, l, h)) {
-		u = lookup_h_table(bdd, i, l, h);
+	} else if (member_h_table(i, l, h)) {
+		u = lookup_h_table(i, l, h);
 		return u;
 	} else {
-		u = add_t_table(bdd, i, l, h);
-		insert_h_table(bdd, i, l, h, u);
+		u = add_t_table(i, l, h);
+		insert_h_table(i, l, h, u);
 		return u;
 	}
 }
@@ -226,10 +238,10 @@ int MK(bdd_t *bdd, int i, int l, int h) {
 // Builds a BDD
 // args: N/A
 // returns: 0 if contradiction, 1 if tautology, else number of variables + 1
-int BUILD(bdd_t *bdd) {
+int BUILD(expr_t *expr) {
 	int ret;
-	x_val_t *xvals = calloc(bdd->expr->numXs + 1, sizeof(*xvals));
-	ret = __BUILD(bdd, xvals, 1);
+	x_val_t *xvals = calloc(expr->numXs + 1, sizeof(*xvals));
+	ret = __BUILD(expr, xvals, 1);
 	free(xvals);
 	return ret;
 }
@@ -238,31 +250,21 @@ int BUILD(bdd_t *bdd) {
 // applies an operand to join to BDDs
 // args: resulting bdd, operator, bdd1, bdd2
 // returns: 0 if contradiction, 1 if tautology, otherwise number of unique x's
-int APPLY(bdd_t *res, op_t op, bdd_t *bdd1, bdd_t *bdd2) {
-	return __APP(res, bdd1->T.table, bdd2->T.table, op, bdd1->T.max, bdd2->T.max);
+int APPLY(op_t op, int u1, int u2) {
+	return __APP(op, u1, u2);
 }
-
 
 // other available functions
-
-// printBDD
-// prints TTable and HTable
-// args: N/A
-// returns: N/A
-void printBDD(bdd_t *bdd) {
-	printTTable(bdd);
-	printHTable(bdd);	
-}
 
 // printTTable
 // prints T table
 // args: N/A
 // returns: N/A
-void printTTable(bdd_t *bdd) {
+void printTTable(void) {
 	printf("Printing T table:\n");
 	printf("u\ti\tl\th\n");
-	for (int u = 0; u < bdd->T.max; u++) {
-		printf("%d\t%d\t%d\t%d\n", u, bdd->T.table[u].i, bdd->T.table[u].l, bdd->T.table[u].h);
+	for (int u = 0; u < MAX; u++) {
+		printf("%d\t%d\t%d\t%d\n", u, T[u].i, T[u].l, T[u].h);
 	}
 }
 
@@ -270,13 +272,13 @@ void printTTable(bdd_t *bdd) {
 // print H table
 // args: N/A
 // returns: N/A
-void printHTable(bdd_t *bdd) {
+void printHTable(void) {
 	ENTRY e, *ep;
 	char *key;
 	printf("Printing H table:\n");
 	printf("key\tu\n");
-	for (int u = 0; u < bdd->numKeys; u++) {
-		key = bdd->keys[u];
+	for (int u = 0; u < numKeys; u++) {
+		key = keys[u];
 		e.key = key;
 		ep = hsearch(e, FIND);
 		printf("%s\t%d\n", key, (ep == NULL) ? 0 : (int)(long)(ep->data));

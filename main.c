@@ -38,13 +38,13 @@ op_t get_op(void) {
 	return op;
 }
 
-void analyze_result(int res, bdd_t *bdd) {
+void analyze_result(int res) {
 	if (res == 0) {
 		printf(KYEL "Expression is a contradiction\n" KRST);
 	} else if (res == 1) {
 		printf(KGRN "Expression is a tautology\n" KRST);
 	} else {
-		printTTable(bdd);
+		printTTable();
 	}
 }
 
@@ -52,14 +52,13 @@ void analyze_result(int res, bdd_t *bdd) {
 // args: # args to program, args to program
 // returns: 0 on success, other value on failure
 int main(int argc, char **argv) {
-	int retval;
+	int retval, u[2], res;
 	bool apply = false;
 	if ((argc > 1) && (!strncasecmp(argv[1], "-a", 2))) {
 		apply = true;
 	}
 	int count = 0;
-	expr_t expr[2], expRes;
-	bdd_t bdd[2], bddRes;
+	expr_t expr[2];
 	do {
 		printf("Enter expression #%d\n", count + 1);
 		char c = getchar();
@@ -79,9 +78,9 @@ int main(int argc, char **argv) {
 			print_expr(&expr[count]);
 			printf("\n");
 			// build robdd
-			init_bdd(&bdd[count], &expr[count]);
-			int res = BUILD(&bdd[count]);
-			analyze_result(res, &bdd[count]);
+			init_bdd(&expr[count]);
+			u[count] = BUILD(&expr[count]);
+			analyze_result(u[count]);
 			if (apply) {
 				if (count == 1) {
 					// apply
@@ -89,26 +88,23 @@ int main(int argc, char **argv) {
 					if (op == -1) {
 						return -1;
 					}
-					expRes.numXs = expr[0].numXs + expr[1].numXs;
-					init_bdd(&bddRes, &expRes);
-					res = APPLY(&bddRes, op, &(bdd[0]), &(bdd[1]));
-					analyze_result(res, &bddRes);
+					res = APPLY(op, u[0], u[1]);
+					analyze_result(res);
 
 					// free
 					for (int i = 0; i < 2; i++) {
 						// delete robdd
-						free_bdd(&bdd[i]);
+						free_bdd();
 						// delete expression
 						del_expr(&expr[i]);
 						count = 0;
 					}
-					free_bdd(&bddRes);
 				} else {
 					count++;
 				}
 			} else {
 				// delete robdd
-				free_bdd(&bdd[count]);
+				free_bdd();
 				// delete expression
 				del_expr(&expr[count]);
 			}

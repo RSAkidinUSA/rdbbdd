@@ -1,0 +1,3 @@
+and(and(x1,not(x2)),and(x3,x4))
+and(and(not(x1),x2),and(x3,x4))
+o
