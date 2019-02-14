@@ -214,18 +214,40 @@ static int __pow2(int n) {
 	return ret;
 }
 
-// __count
+// __COUNT
 // backend to the count algorithm - as described in bdd-eap
 // args: node to start from
 // returns: number of satifiable paths
-static int __count(int u) {
+static int __COUNT(int u) {
 	if (u == 0) {
 		return 0;
 	} else if (u == 1) {
 		return 1;
 	} else {
-		return (__pow2(T[T[u].l].i - T[u].i - 1) * __count(T[u].l)) +
-				(__pow2(T[T[u].h].i - T[u].i - 1) * __count(T[u].h));
+		return (__pow2(T[T[u].l].i - T[u].i - 1) * __COUNT(T[u].l)) +
+				(__pow2(T[T[u].h].i - T[u].i - 1) * __COUNT(T[u].h));
+	}
+}
+
+// __ANYSAT
+// backend to anysat algorithm - as described in bdd-eap
+// args: node to start from
+// returns: N/A
+static int *__ANYSAT_LIST;
+static void __ANYSAT(int u) {
+	if (u == 0) {
+		BDDErr("Error in anysat\n");
+		exit(-1);
+	} else if (u == 1) {
+		return;
+	} else if (T[u].l == 0) {
+		__ANYSAT_LIST[T[u].i] = 1;
+		__ANYSAT(T[u].h);
+		return;
+	} else {
+		__ANYSAT_LIST[T[u].i] = 0;
+		__ANYSAT(T[u].l);
+		return;
 	}
 }
 
@@ -326,7 +348,16 @@ int RESTRICT(int u, int j, int b) {
 // args: node to start from
 // returns: number of paths that satisfy the tree
 int SATCOUNT(int u) {
-	return __pow2(T[u].i - 1) * __count(u);
+	return __pow2(T[u].i - 1) * __COUNT(u);
+}
+
+// ANYSAT
+// print one path that satisfies the tree
+// args: node to start from, list to fill
+// returns: N/A
+void ANYSAT(int u, int *list) {
+	__ANYSAT_LIST = list;
+	__ANYSAT(u);
 }
 
 // other available functions

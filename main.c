@@ -176,7 +176,7 @@ static void do_satcount(expr_t *expr, int *u, int count) {
 
 // print
 // print the requested bdd
-// args: list of bases, number of bdds
+// args: list of expressions, list of bases, number of bdds
 // returns: N/A
 static void do_print(expr_t *expr, int *u, int count) {
 	int selected = 0;
@@ -189,7 +189,7 @@ static void do_print(expr_t *expr, int *u, int count) {
 
 // do_restrict
 // read the values to restrict, then do so
-// args: list of bases, number of bdds
+// args: list of expressions, list of bases, number of bdds
 // returns: N/A
 static void do_restrict(expr_t *expr, int *u, int count) {
 	int selected = 0, node, val;
@@ -208,6 +208,26 @@ static void do_restrict(expr_t *expr, int *u, int count) {
 	u[selected] = RESTRICT(u[selected], node, val);
 }
 
+// do_restrict
+// read the bdd to find anysat for, then do so
+// args: list of expressions, list of bases, number of bdds
+// returns: N/A
+static void do_anysat(expr_t *expr, int *u, int count) {
+	int selected, *list, numXs;
+	selected = read_val_range("Select the bdd to get anysat for:", 0, count);
+	if (selected == EOF) {
+		eof_cleanup(expr, count, false);
+	}
+	numXs = expr[selected].numXs;
+	printf("One anysat for bdd %d is:\n", selected);
+	list = calloc(numXs + 1, sizeof(*list));
+	ANYSAT(u[selected], list);
+	for (int i = 1; i <= numXs; i++) {
+		printf("%d%c", list[i], (i < numXs) ? ',' : '\n');
+	}
+	free(list);
+}
+
 // do_help
 // prints the help menu for interactive mode
 // args: N/A
@@ -218,6 +238,7 @@ static void do_help(int count) {
 	if (count && count < MAX_NUM_EXPR - 1) {
 		printf("a {op,u1,u2} - apply operation op to expr u1 and expr u2\n");
 	}
+	printf("c %s- satcount%s\n", count ? "{#} " : "", count ? " for bdd #" : "");
 	if (count < MAX_NUM_EXPR - 1) {
 		printf("i - insert\n");
 	}
@@ -225,6 +246,8 @@ static void do_help(int count) {
 	printf("p %s- print bdd%s\n", count ? "{#} " : "", count ? " #" : "");
 	printf("q - quit\n");
 	printf("r {%sjb} - restrict bdd%s, at node j, with value b\n", count ? "#" : "", count ? " #" : "");
+	printf("s %s- allsat%s\n", count ? "{#} " : "", count ? " for bdd #" : "");
+	printf("y %s- anysat%s\n", count ? "{#} " : "", count ? " for bdd #" : "");
 	printf("h - help\n");
 }
 
@@ -287,15 +310,20 @@ int main(int argc, char **argv) {
 							count = 0;
 							menuDone = true;
 							continue;
-						case 'r':
-							do_restrict(expr, u, count);
-							continue;
 						case 'p':
 							do_print(expr, u, count);
 							continue;
 						case 'q':
 							cleanup(expr, count + 1);
 							return 0;
+						case 'r':
+							do_restrict(expr, u, count);
+							continue;
+						case 's':
+							continue;
+						case 'y':
+							do_anysat(expr, u, count);
+							continue;
 						case 'h':
 						default:
 							do_help(count);
