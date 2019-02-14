@@ -1,4 +1,5 @@
-#include <stdbool.h>
+#include <string.h>
+#include <search.h>
 #include "colors.h"
 #include "bdd.h"
 

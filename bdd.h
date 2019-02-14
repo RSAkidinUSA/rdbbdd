@@ -1,11 +1,10 @@
 #ifndef BDD_H
 #define BDD_H
 
-#define _GNU_SOURCE
+#include <strings.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <search.h>
 #include "parse.h"
 
 typedef struct {
