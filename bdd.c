@@ -202,6 +202,33 @@ static int __RES(int u) {
 	}
 }
 
+// __pow2
+// returns 2 to the power of n
+// args: n
+// returns: 2 ^ n
+static int __pow2(int n) {
+	int ret = 1;
+	for (int i = 0; i < n; i++) {
+		ret *= 2;
+	}
+	return ret;
+}
+
+// __count
+// backend to the count algorithm - as described in bdd-eap
+// args: node to start from
+// returns: number of satifiable paths
+static int __count(int u) {
+	if (u == 0) {
+		return 0;
+	} else if (u == 1) {
+		return 1;
+	} else {
+		return (__pow2(T[T[u].l].i - T[u].i - 1) * __count(T[u].l)) +
+				(__pow2(T[T[u].h].i - T[u].i - 1) * __count(T[u].h));
+	}
+}
+
 static bool used_entries[NUM_TABLE_ENTRIES];
 // __find_used
 // mark all used nodes in the tree
@@ -286,12 +313,20 @@ int APPLY(op_t op, int u1, int u2) {
 
 // RESTRICT
 // applies an operand to join to BDDs
-// args: resulting bdd, operator, bdd1, bdd2
+// args: operator, node1, node 2
 // returns: 0 if contradiction, 1 if tautology, otherwise number of unique x's
 int RESTRICT(int u, int j, int b) {
 	__RES_j = j;
 	__RES_b = b;
 	return __RES(u);
+}
+
+// SATCOUNT
+// determines the number of paths to satisfy the tree
+// args: node to start from
+// returns: number of paths that satisfy the tree
+int SATCOUNT(int u) {
+	return __pow2(T[u].i - 1) * __count(u);
 }
 
 // other available functions

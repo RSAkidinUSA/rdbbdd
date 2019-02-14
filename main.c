@@ -122,6 +122,8 @@ static int read_val_range(char *msg, int min, int max) {
 			nitems = scanf("%d", &selected);
 			if (nitems == EOF) {
 				return EOF;
+			} else if (nitems == 0) {
+				getchar();
 			}
 		} while (!nitems || selected < min || selected > max);
 	}
@@ -154,8 +156,35 @@ static void do_apply(expr_t *expr, int *u, int count) {
 		}
 	} while (u2 == u1);
 	// set numXs to the max of the two expressions
-	expr[count].numXs = (expr[u1].numXs > expr[u2].numXs) ? expr[u1].numXs : expr[u2].numXs;
+	expr[count].numXs = (expr[u1].numXs > expr[u2].numXs) ? 
+			expr[u1].numXs : expr[u2].numXs;
 	u[count] = APPLY(op, u[u1], u[u2]);
+}
+
+// do_satcount
+// read in the expression to do satcount on, then do it
+// args: list of expressions, list of bases, number of bdds
+// returns: N/A
+static void do_satcount(expr_t *expr, int *u, int count) {
+	int selected;
+	selected = read_val_range("Select the bdd to get the satcount for:", 0, count);
+	if (selected == EOF) {
+		eof_cleanup(expr, count, false);
+	}
+	printf("The satcount for bdd %d is %d\n", selected, SATCOUNT(u[selected]));
+}
+
+// print
+// print the requested bdd
+// args: list of bases, number of bdds
+// returns: N/A
+static void do_print(expr_t *expr, int *u, int count) {
+	int selected = 0;
+	selected = read_val_range("Select the bdd to print:", 0, count);
+	if (selected == EOF) {
+		eof_cleanup(expr, count, false);
+	}
+	analyze_result(u[selected]);
 }
 
 // do_restrict
@@ -177,19 +206,6 @@ static void do_restrict(expr_t *expr, int *u, int count) {
 		eof_cleanup(expr, count, false);
 	}
 	u[selected] = RESTRICT(u[selected], node, val);
-}
-
-// print
-// print the requested bdd
-// args: list of bases, number of bdds
-// returns: N/A
-static void do_print(expr_t *expr, int *u, int count) {
-	int selected = 0;
-	selected = read_val_range("Select the bdd to print:", 0, count);
-	if (selected == EOF) {
-		eof_cleanup(expr, count, false);
-	}
-	analyze_result(u[selected]);
 }
 
 // do_help
@@ -254,6 +270,9 @@ int main(int argc, char **argv) {
 							} else {
 								printf("No room to apply any more expressions\n");
 							}
+							continue;
+						case 'c':
+							do_satcount(expr, u, count);
 							continue;
 						case 'i':
 							if (count < MAX_NUM_EXPR - 1) {

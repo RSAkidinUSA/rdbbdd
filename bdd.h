@@ -26,6 +26,7 @@ int MK(int i, int l, int h);
 int BUILD(expr_t *expr);
 int APPLY(op_t op, int u1, int u2);
 int RESTRICT(int u, int j, int b);
+int SATCOUNT(int u);
 
 // functions for printing
 void printTTable(int u);
