@@ -283,6 +283,7 @@ int main(int argc, char **argv) {
 						eof_cleanup(expr, count, true);
 					}
 					switch(c) {
+						case 'A':
 						case 'a':
 							if (count == 0) {
 								printf("Need at least 2 expressions to apply\n");
@@ -293,9 +294,11 @@ int main(int argc, char **argv) {
 								printf("No room to apply any more expressions\n");
 							}
 							continue;
+						case 'C':
 						case 'c':
 							do_satcount(expr, u, count);
 							continue;
+						case 'I':
 						case 'i':
 							if (count < MAX_NUM_EXPR - 1) {
 								count++;
@@ -304,23 +307,29 @@ int main(int argc, char **argv) {
 								printf("No room to insert any more expressions\n");
 							}
 							continue;
+						case 'N':
 						case 'n':
 							cleanup(expr, count + 1);
 							count = 0;
 							menuDone = true;
 							continue;
+						case 'P':
 						case 'p':
 							do_print(expr, u, count);
 							continue;
+						case 'Q':
 						case 'q':
 							cleanup(expr, count + 1);
 							return 0;
+						case 'R':
 						case 'r':
 							do_restrict(expr, u, count);
 							continue;
+						case 'Y':
 						case 'y':
 							do_anysat(expr, u, count);
 							continue;
+						case 'H':
 						case 'h':
 						default:
 							do_help(count);
