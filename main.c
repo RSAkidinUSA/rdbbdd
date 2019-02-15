@@ -246,7 +246,6 @@ static void do_help(int count) {
 	printf("p %s- print bdd%s\n", count ? "{#} " : "", count ? " #" : "");
 	printf("q - quit\n");
 	printf("r {%sjb} - restrict bdd%s, at node j, with value b\n", count ? "#" : "", count ? " #" : "");
-	printf("s %s- allsat%s\n", count ? "{#} " : "", count ? " for bdd #" : "");
 	printf("y %s- anysat%s\n", count ? "{#} " : "", count ? " for bdd #" : "");
 	printf("h - help\n");
 }
@@ -318,8 +317,6 @@ int main(int argc, char **argv) {
 							return 0;
 						case 'r':
 							do_restrict(expr, u, count);
-							continue;
-						case 's':
 							continue;
 						case 'y':
 							do_anysat(expr, u, count);
